@@ -1,0 +1,63 @@
+CREATE OR REPLACE FUNCTION empruntsClient(idClient banque.client.ncli%TYPE )
+RETURNS boolean AS $$
+declare record record;
+declare reclient banque.client%rowType;
+BEGIN
+
+select * from banque.client as cli into reclient where cli.ncli = idClient;
+if FOUND then
+raise notice 'client :  %', reclient;
+else
+
+return false;
+end if;
+
+
+for record in select * from banque.emprunt as em INNER JOIN banque.compte as c on em.ncompte=c.ncompte inner join banque.compte_client as cl on cl.ncompte=c.ncompte
+inner join banque.agence as a  on c.nag=a.nag  where cl.ncli = idClient loop
+
+raise notice 'emprunt numero % de % sur le compte % de l’agence % ', record.nemprunt, record.montant, record.ncompte, record.nomag;
+
+end loop;
+
+
+return TRUE;
+END ;$$ language 'plpgsql' ;
+
+
+select empruntsClient(1);
+
+
+
+CREATE OR REPLACE FUNCTION update_nb_montants()
+RETURNS TRIGGER AS $$
+BEGIN
+IF (tg_op = 'INSERT' or tg_op = 'UPDATE') THEN
+update banque.compte set montant_emprunts = montant_emprunts + new.montant where banque.compte.ncompte = new.ncompte;
+raise notice 'insert old : %', new.ncompte;
+END IF ;
+
+IF (tg_op = 'UPDATE' or tg_op = 'DELETE') THEN
+update banque.compte set montant_emprunts = montant_emprunts - old.montant where banque.compte.ncompte = new.ncompte;
+raise notice 'delete old : %', old.ncompte;
+END IF ;
+
+raise notice 'delete old : %', old.ncompte;
+
+if tg_op = 'DELETE' then
+	return old;
+end if;
+
+return new;
+
+END ;$$
+LANGUAGE 'plpgsql' ;
+
+--CREATE TRIGGER update_nb_montants
+--BEFORE update OR insert or delete
+--ON banque.emprunt FOR EACH ROW
+--EXECUTE FUNCTION update_nb_montants() ;
+
+insert into banque.emprunt values(14,145,3000);
+--DELETE FROM banque.compte_client WHERE ncompte = 143 AND ncli = 10;
+--insert into banque.compte_client values(143,10)
